@@ -1,0 +1,60 @@
+#!/bin/bash
+
+# Function to extract archives
+
+# sudo apt-get install unrar
+# sudo apt-get install p7zip-full
+
+extract_archive() {
+    local archive="$1"
+    local destination_dir="$2"
+    local folder_name="${archive%.*}"
+
+    # Create the destination folder if it doesn't exist
+    mkdir -p "$destination_dir/$folder_name"
+
+    case "$archive" in
+        *.tar.bz2|*.tbz2)
+            tar xjf "$archive" -C "$destination_dir/$folder_name"
+            ;;
+        *.tar.gz|*.tgz)
+            tar xzf "$archive" -C "$destination_dir/$folder_name"
+            ;;
+        *.tar.xz)
+            tar xJf "$archive" -C "$destination_dir/$folder_name"
+            ;;
+        *.tar)
+            tar xf "$archive" -C "$destination_dir/$folder_name"
+            ;;
+        *.zip)
+            unzip "$archive" -d "$destination_dir/$folder_name"
+            ;;
+        *.rar)
+            unrar x "$archive" "$destination_dir/$folder_name"
+            ;;
+        *.7z)
+            7za x "$archive" -o"$destination_dir/$folder_name"
+            ;;
+        *)
+            echo "Unsupported archive format: $archive"
+            return 1
+            ;;
+    esac
+
+    echo "Extracted $archive to $destination_dir/$folder_name/"
+}
+
+# Create a directory to store extracted files
+destination_dir="extracted_archives"
+mkdir -p "$destination_dir"
+
+# Extract all archives in the current directory
+for archive in *.tar.bz2 *.tbz2 *.tar.gz *.tgz *.tar.xz *.tar *.zip *.rar *.7z; do
+    if [ -e "$archive" ]; then
+        extract_archive "$archive" "$destination_dir"
+    else
+        echo "No archives found in the current directory."
+    fi
+done
+
+echo "Extraction process completed."

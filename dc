@@ -1,0 +1,192 @@
+#!/bin/bash
+
+# Script to convert dictionaries using PyGlossary
+# Automatically detects input format and converts to JSON
+# Allows the user to select a file from the current directory or pass a file as an argument
+
+# Check if PyGlossary is installed
+if ! command -v pyglossary &> /dev/null
+then
+    echo "PyGlossary is not installed. Please install it first."
+    exit 1
+fi
+
+# Replace white spaces in file names with underscores
+for file in *; do
+    new_name="$(echo "$file" | tr ' ' '_')"
+    if [ "$file" != "$new_name" ]; then
+        mv "$file" "$new_name"
+    fi
+done
+
+# Function to colorize filenames
+colorize_files() {
+    for file in *; do
+        case "${file##*.}" in
+            dsl|dz|stardict|mdict|mdx|bgl)
+                echo -e "\033[32m$file\033[0m" # Green for matching extensions
+                ;;
+            *)
+                echo "$file" # Default color for others
+                ;;
+        esac
+    done
+}
+
+# Function to convert dictionaries in a folder
+convert_dictionaries_in_folder() {
+    local folder=$1
+    local input_format=$2
+    local extension=$3
+
+    cd "$folder" || return
+
+    for file in *."$extension"; do
+        if [ -f "$file" ]; then
+            BASE_NAME="${file%.*}"
+            OUTPUT_DIR="${BASE_NAME}_output"
+            OUTPUT_FILE="${OUTPUT_DIR}/${BASE_NAME}.json"
+
+            # Create output directory
+            mkdir -p "$OUTPUT_DIR"
+
+            # Convert dictionary
+            pyglossary --read-format "$input_format" --write-format "Json" "$file" "$OUTPUT_FILE"
+
+            # Check if the conversion succeeded
+            if [ $? -eq 0 ]; then
+                echo "Conversion completed successfully for $file in $folder."
+                echo "Input: $file ($input_format)"
+                echo "Output: $OUTPUT_FILE (JSON)"
+                # Sound notification on success
+                # notify-send "Output: $OUTPUT_FILE (JSON)"
+            else
+                echo "Conversion failed for $file in $folder. Please check the input file, formats, or PyGlossary installation."
+            fi
+        fi
+    done
+
+    cd ..
+}
+
+# Check if an extension is passed as an argument
+if [ -n "$1" ]; then
+    EXTENSION="$1"
+    # Detect input format based on the extension
+    case "$EXTENSION" in
+        dsl)
+            INPUT_FORMAT="ABBYYLingvoDSL"
+            ;;
+        dsl.dz)
+            INPUT_FORMAT="ABBYYLingvoDSL"
+            ;;
+        stardict)
+            INPUT_FORMAT="Stardict"
+            ;;
+        ifo)
+            INPUT_FORMAT="Stardict"
+            ;;
+        mdict)
+            INPUT_FORMAT="OctopusMdict"
+            ;;
+        mdx)
+            INPUT_FORMAT="OctopusMdict"
+            ;;
+        bgl)
+            INPUT_FORMAT="BabylonBgl"
+            ;;
+        BGL)
+            INPUT_FORMAT="BabylonBgl"
+            ;;
+        xdxf)
+            INPUT_FORMAT="Xdxf"
+            ;;
+        index)
+            INPUT_FORMAT="DictOrg"
+            ;;
+        *)
+            echo "Unsupported file extension: $EXTENSION"
+            echo "Supported formats: dsl, dz, stardict/ifo, mdict, mdx, bgl, xdxf"
+            exit 1
+            ;;
+    esac
+
+    # Iterate through each folder in the current directory and its subdirectories
+    find . -type f -name "*.$EXTENSION" -exec dirname {} \; | sort | uniq | while read -r folder; do
+        convert_dictionaries_in_folder "$folder" "$INPUT_FORMAT" "$EXTENSION"
+    done
+    exit 0
+fi
+
+# List files in the current directory with colors and prompt the user to select one
+echo "Available dictionary files:"
+colorize_files
+select INPUT_FILE in $(ls -1); do
+    if [ -n "$INPUT_FILE" ]; then
+        break
+    else
+        echo "Invalid selection. Please try again."
+    fi
+done
+
+# Extract the base name and extension
+BASE_NAME="${INPUT_FILE%.*}"
+EXTENSION="${INPUT_FILE##*.}"
+OUTPUT_DIR="${BASE_NAME}_output"
+OUTPUT_FILE="${OUTPUT_DIR}/${BASE_NAME}.json"
+
+# Detect input format
+case "$EXTENSION" in
+    dsl)
+        INPUT_FORMAT="ABBYYLingvoDSL"
+        ;;
+    dsl.dz)
+        INPUT_FORMAT="ABBYYLingvoDSL"
+            ;;
+    stardict)
+        INPUT_FORMAT="Stardict"
+        ;;
+    ifo)
+        INPUT_FORMAT="Stardict"
+        ;;
+    mdict)
+        INPUT_FORMAT="OctopusMdict"
+        ;;
+    mdx)
+        INPUT_FORMAT="OctopusMdict"
+        ;;
+    bgl)
+        INPUT_FORMAT="BabylonBgl"
+        ;;
+    BGL)
+        INPUT_FORMAT="BabylonBgl"
+        ;;
+    xdxf)
+        INPUT_FORMAT="Xdxf"
+        ;;
+    index)
+        INPUT_FORMAT="DictOrg"
+        ;;
+    *)
+        echo "Unsupported file extension: $EXTENSION"
+        echo "Supported formats: dsl, dz, stardict/ifo, mdict, mdx, bgl, xdxf"
+        exit 1
+        ;;
+esac
+
+# Create output directory
+mkdir -p "$OUTPUT_DIR"
+
+# Convert dictionary
+pyglossary --read-format "$INPUT_FORMAT" --write-format "Json" "$INPUT_FILE" "$OUTPUT_FILE"
+
+# Check if the conversion succeeded
+if [ $? -eq 0 ]; then
+    echo "Conversion completed successfully."
+    echo "Input: $INPUT_FILE ($INPUT_FORMAT)"
+    echo "Output: $OUTPUT_FILE (JSON)"
+else
+    echo "Conversion failed. Please check the input file, formats, or PyGlossary installation."
+    exit 1
+fi
+
