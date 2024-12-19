@@ -1,0 +1,60 @@
+#!/usr/bin/python
+
+from bs4 import BeautifulSoup
+import argparse
+import csv
+
+# List of extensions to look for
+extensions = ['.7z', '.rar', '.zip', '.tar', '.gz', '.bz2', '.xz', '.tar.gz', '.tar.bz2', '.tar.xz']
+
+def extract_links_and_titles(html_content, extensions):
+    soup = BeautifulSoup(html_content, 'html.parser')
+    links_and_titles = []
+
+    # Find all anchor tags
+    for a_tag in soup.find_all('a', href=True):
+        href = a_tag['href']
+        # Check if the href ends with any of the specified extensions
+        if any(href.endswith(ext) for ext in extensions):
+            # Find the corresponding title
+            title_tag = a_tag.find_next(class_='innernametext')
+            title = title_tag['title'] if title_tag and 'title' in title_tag.attrs else 'No Title'
+
+            # Find the corresponding file size
+            filesize_tag = a_tag.find_next(class_='filesize')
+            filesize = filesize_tag.get_text(strip=True) if filesize_tag else 'No Size'
+
+            links_and_titles.append((href, title, filesize))
+
+    return links_and_titles
+
+def main(html_file):
+    # Read the HTML file
+    with open(html_file, 'r', encoding='utf-8') as file:
+        html_content = file.read()
+
+    # Extract links, titles, and file sizes
+    links_and_titles = extract_links_and_titles(html_content, extensions)
+
+    # Base URL to prepend
+    base_url = "https://cloud.freemdict.com"
+
+    # Prepend the base URL to each link and prepare the CSV data
+    csv_data = []
+    for link, title, filesize in links_and_titles:
+        full_link = base_url + link if not link.startswith(('http://', 'https://')) else link
+        csv_data.append((full_link, title, filesize))
+
+    # Output the result to freemdict-links.csv
+    with open('freemdict-links.csv', 'w', encoding='utf-8', newline='') as output_file:
+        csv_writer = csv.writer(output_file, delimiter='|')
+        csv_writer.writerow(['Link', 'Title', 'File Size'])  # Write header
+        csv_writer.writerows(csv_data)
+
+    print("Links, titles, and file sizes have been written to freemdict-links.csv")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Extract links, titles, and file sizes from an HTML file.')
+    parser.add_argument('html_file', type=str, help='The HTML file to process.')
+    args = parser.parse_args()
+    main(args.html_file)
